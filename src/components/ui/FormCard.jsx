@@ -1,53 +1,55 @@
 import { useState } from "react";
-import Field from "./Field";
-import Button from "./Button";
+import Button from "../ui/Button";
+import Field from "../ui/Field";
 
-/*
-  Chota reusable form. fields:
-   { name, label, type?: "text|number|date|textarea", options?: [{value,label}], list?: ["a","b"], optional?: true }
-  onSubmit(values, reset) - save kamyab hone par reset() call karein.
-*/
-const startValues = (fields, initial) =>
-  Object.fromEntries(fields.map((f) => [f.name, initial?.[f.name] ?? (f.options ? f.options[0]?.value ?? "" : "")]));
+export default function FormCard({
+  title,
+  subtitle,
+  fields = [],
+  onSubmit,
+  submitLabel = "Save",
+  pending,
+}) {
+  // Safe initial values mapping with fallback to []
+  const initialValues = {};
+  (fields || []).forEach((f) => {
+    initialValues[f.name] = f.defaultValue ?? "";
+  });
 
-export default function FormCard({ title, fields, onSubmit, pending, submitLabel = "Save", onCancel, initial }) {
-  const [values, setValues] = useState(() => startValues(fields, initial));
-  const update = (e) => setValues({ ...values, [e.target.name]: e.target.value });
+  const [values, setValues] = useState(initialValues);
 
-  const submit = (e) => {
+  const handleChange = (name, value) => {
+    setValues({ ...values, [name]: value });
+  };
+
+  const handleSubmit = (e) => {
     e.preventDefault();
-    const out = { ...values };
-    fields.forEach((f) => {
-      if (f.options && !out[f.name]) out[f.name] = f.options[0]?.value ?? ""; // select ka default
-      if (f.type === "number") out[f.name] = Number(out[f.name] || 0);
-    });
-    onSubmit(out, () => setValues(startValues(fields)));
+    onSubmit(values, () => setValues(initialValues));
   };
 
   return (
-    <form className="card card-pad" onSubmit={submit}>
+    <div className="card card-pad mb">
       {title && <div className="card-title">{title}</div>}
-      <div className="form-grid">
-        {fields.map((f) =>
-          f.options ? (
-            <Field key={f.name} label={f.label} as="select" name={f.name} value={values[f.name]} onChange={update}>
-              {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </Field>
-          ) : f.type === "textarea" ? (
-            <Field key={f.name} label={f.label} as="textarea" rows={4} name={f.name} value={values[f.name]} onChange={update} placeholder={f.placeholder} required={!f.optional} />
-          ) : (
-            <div key={f.name}>
-              <Field label={f.label} type={f.type || "text"} name={f.name} value={values[f.name]} onChange={update}
-                list={f.list ? `${f.name}-list` : undefined} required={!f.optional} />
-              {f.list && <datalist id={`${f.name}-list`}>{f.list.map((x) => <option key={x} value={x} />)}</datalist>}
-            </div>
-          )
-        )}
-      </div>
-      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-        <Button primary type="submit" disabled={pending}>{pending ? "Saving..." : submitLabel}</Button>
-        {onCancel && <Button onClick={onCancel}>Cancel</Button>}
-      </div>
-    </form>
+      {subtitle && <p className="hint mb">{subtitle}</p>}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {(fields || []).map((f) => (
+          <Field
+            key={f.name}
+            label={f.label}
+            type={f.type}
+            placeholder={f.placeholder}
+            value={values[f.name] ?? ""}
+            onChange={(e) => handleChange(f.name, e.target.value)}
+            options={f.options || []} // Safe options mapping
+            as={f.as}
+          />
+        ))}
+        <div style={{ marginTop: "12px" }}>
+          <Button primary type="submit" disabled={pending}>
+            {pending ? "Saving..." : submitLabel}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }

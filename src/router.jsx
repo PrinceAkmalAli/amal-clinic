@@ -7,12 +7,11 @@ import PlatformLayout from "./layouts/PlatformLayout";
 import LoginPage from "./pages/auth/LoginPage";
 import ClinicsPage from "./pages/platform/ClinicsPage";
 import DashboardPage from "./pages/clinic/DashboardPage";
-import PatientsPage from "./pages/clinic/PatientsPage";
-import OpdPage from "./pages/clinic/OpdPage";
+import FrontDeskPage from "./pages/clinic/FrontDeskPage";
 import EmrPage from "./pages/clinic/EmrPage";
 import IpdPage from "./pages/clinic/IpdPage";
 import LabPage from "./pages/clinic/LabPage";
-import BillingPage from "./pages/clinic/BillingPage";
+import FinancePage from "./pages/clinic/FinancePage";
 import HrmPage from "./pages/clinic/HrmPage";
 import ReportsPage from "./pages/clinic/ReportsPage";
 import UsersPage from "./pages/clinic/UsersPage";
@@ -57,13 +56,12 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <DashboardPage /> },
-      { path: "patients", element: guard("patients.view", <PatientsPage />) },
+      { path: "patients", element: guard(["reception.view", "patients.view"], <FrontDeskPage />) },
       { path: "doctor", element: guard("doctor.desk", <DoctorDeskPage />) },
-      { path: "opd", element: guard("opd.view", <OpdPage />) },
       { path: "emr", element: guard("emr.view", <EmrPage />) },
       { path: "ipd", element: guard("ipd.view", <IpdPage />) },
       { path: "lab", element: guard("lab.view", <LabPage />) },
-      { path: "billing", element: guard("billing.view", <BillingPage />) },
+      { path: "finance", element: guard(["finance.self", "finance.view", "finance.manage", "finance.expenses", "finance.closing"], <FinancePage />) },
       { path: "hrm", element: guard("hrm.view", <HrmPage />) },
       { path: "reports", element: guard("reports.view", <ReportsPage />) },
       { path: "users", element: guard("users.manage", <UsersPage />) },

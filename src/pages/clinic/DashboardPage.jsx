@@ -2,12 +2,14 @@ import { Home } from "lucide-react";
 import { useList } from "../../hooks/useResource";
 import { billsApi, tokensApi, wardsApi } from "../../api/resources";
 import { money, today } from "../../utils/date";
+import { useAuth } from "../../context/AuthContext";
 import PageHeader from "../../components/ui/PageHeader";
 import Stats from "../../components/ui/Stats";
 import DataTable from "../../components/ui/DataTable";
 import Badge from "../../components/ui/Badge";
 
 export default function DashboardPage() {
+  const { can } = useAuth();
   const { data: tokens = [], isLoading } = useList(tokensApi, "tokens", { date: today() });
   const { data: bills = [] } = useList(billsApi, "bills", { date: today() });
   const { data: wards = [] } = useList(wardsApi, "wards");
@@ -29,7 +31,7 @@ export default function DashboardPage() {
       <PageHeader title="Home" icon={Home} />
       <Stats items={[
         { label: "Today's patients", value: tokens.length },
-        { label: "Cash collection", value: money(collection) },
+        ...(can("finance.view") ? [{ label: "Cash collection", value: money(collection) }] : []),
         { label: "Pending appointments", value: pending },
         { label: "Occupied beds", value: occupied },
       ]} />

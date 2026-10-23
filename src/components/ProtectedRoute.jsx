@@ -1,5 +1,6 @@
 import { Navigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import NotAuthorized from "./NotAuthorized";
 
 // mode="platform"  -> sirf platform admin
 // mode="clinic"    -> sirf us clinic ka user (URL ke slug se match)
@@ -15,7 +16,7 @@ export default function ProtectedRoute({ children, mode, permission }) {
     if (!isLoggedIn || user.clinicSlug !== clinicSlug) return <Navigate to={`/${clinicSlug}/login`} replace />;
   }
   if (permission && !can(permission)) {
-    return <div className="empty">Aap ke paas is page ka access nahi hai.</div>;
+    return <NotAuthorized />;
   }
   return children;
 }

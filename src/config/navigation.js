@@ -1,7 +1,6 @@
 import {
   Home,
   Users,
-  Ticket,
   Stethoscope,
   Briefcase,
   Wallet,
@@ -23,10 +22,17 @@ export const NAV_GROUPS = [
     items: [
       { label: "Home", path: "", icon: Home, permission: "dashboard.view" },
       {
-        label: "Patients",
+        label: "OPD & Patients",
         path: "patients",
         icon: Users,
-        permission: "patients.view",
+        permission: ["reception.view", "patients.view"],
+        children: [
+          { label: "Patients", tab: "patients", isDefault: true, permission: "patients.view" },
+          { label: "Register & book", tab: "register", permission: "patients.create" },
+          { label: "Appointments & queue", tab: "queue", permission: "opd.view" },
+          { label: "Cashier (payments)", tab: "cashier", permission: "billing.collect" },
+          { label: "My payment history", tab: "history", permission: "billing.collect" },
+        ],
       },
       {
         label: "Doctor desk",
@@ -40,12 +46,6 @@ export const NAV_GROUPS = [
         ],
       },
 
-      {
-        label: "OPD & tokens",
-        path: "opd",
-        icon: Ticket,
-        permission: "opd.view",
-      },
       {
         label: "Clinical (EMR)",
         path: "emr",
@@ -73,19 +73,16 @@ export const NAV_GROUPS = [
         ],
       },
       {
-        label: "Billing & finance",
-        path: "billing",
+        label: "Finance & accounts",
+        path: "finance",
         icon: Wallet,
-        permission: "billing.view",
+        permission: ["finance.self", "finance.view", "finance.manage", "finance.expenses", "finance.closing"],
         children: [
-          { label: "POS billing", tab: "pos", isDefault: true },
-          { label: "Payment history", tab: "history" },
-          { label: "Expenses", tab: "expenses", permission: "finance.view" },
-          {
-            label: "Day-end closing",
-            tab: "closing",
-            permission: "finance.view",
-          },
+          { label: "Accounts", tab: "accounts", isDefault: true, permission: ["finance.self", "finance.view", "finance.manage"] },
+          { label: "Cash handover", tab: "handover", permission: ["finance.self", "finance.view", "finance.manage"] },
+          { label: "Payment history", tab: "history", permission: "finance.view" },
+          { label: "Expenses", tab: "expenses", permission: "finance.expenses" },
+          { label: "Day-end closing", tab: "closing", permission: "finance.closing" },
         ],
       },
       {

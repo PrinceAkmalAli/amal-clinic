@@ -2,14 +2,12 @@ import { useState } from "react";
 import { BedDouble } from "lucide-react";
 import {
   admissionsApi,
-  billsApi,
   patientsApi,
   wardsApi,
 } from "../../api/resources";
 import { useCreate, useList, useUpdate } from "../../hooks/useResource";
 import { useAuth } from "../../context/AuthContext";
 import { daysBetween, findById, money, nowTime, today } from "../../utils/date";
-import { makeBill } from "../../utils/billing";
 import PageHeader from "../../components/ui/PageHeader";
 import Tabs from "../../components/ui/Tabs";
 import Button from "../../components/ui/Button";
@@ -43,7 +41,6 @@ export default function IpdPage() {
   const updateWard = useUpdate(wardsApi, "wards");
   const createAdm = useCreate(admissionsApi, "admissions");
   const updateAdm = useUpdate(admissionsApi, "admissions");
-  const createBill = useCreate(billsApi, "bills");
 
   const adm = admissions.find((a) => a.id === active?.id);
   const wardOf = (a) => wards.find((w) => w.id === a.wardId);
@@ -96,6 +93,7 @@ export default function IpdPage() {
       doctorName: form.doctorName,
       emergencyContact: form.emergencyContact,
       deposit,
+      depositPending: deposit > 0, // reception (Cashier tab) par collect hoga
       admittedOn: today(),
       status: "admitted",
       notes: [],
@@ -107,21 +105,6 @@ export default function IpdPage() {
         b.no === bedNo ? { ...b, status: "occupied" } : b,
       ),
     });
-    if (deposit > 0) {
-      await createBill.mutateAsync(
-        makeBill({
-          patientName: patient.name,
-          user: user?.name,
-          lines: [
-            {
-              name: "IPD advance deposit",
-              category: "IPD Advance",
-              amount: deposit,
-            },
-          ],
-        }),
-      );
-    }
     setForm({
       ...form,
       reason: "",
@@ -196,20 +179,8 @@ export default function IpdPage() {
       dischargedOn: today(),
       ...c,
       charges: extra,
+      settlementPending: true, // reception (Cashier tab) par collect / refund hoga
     });
-    await createBill.mutateAsync(
-      makeBill({
-        patientName: adm.patientName,
-        user: user?.name,
-        lines: [
-          {
-            name: `IPD final settlement (${adm.ipdNumber})`,
-            category: "IPD Settlement",
-            amount: c.balance,
-          },
-        ],
-      }),
-    );
     setExtra({ doctorVisits: 0, medicines: 0, labTests: 0, misc: 0 });
     setActive(null);
   };

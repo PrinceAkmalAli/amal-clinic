@@ -5,18 +5,21 @@ let counter = 1000;
 export const nextId = () => ++counter;
 export const delay = (data, ms = 150) => new Promise((r) => setTimeout(() => r(structuredClone(data)), ms));
 
-const pat = (id, name, gender, age, phone) => ({
-  id, mrNumber: `MR-${String(id).padStart(4, "0")}`, name, gender, age, phone, address: "Mianwali", registeredOn: daysAgo(3),
+const pat = (id, name, gender, age, phone, cnic) => ({
+  id, mrNumber: `MR-${String(id).padStart(4, "0")}`, name, gender, age, phone, cnic, address: "Mianwali", registeredOn: daysAgo(3),
+  preferredDoctorId: 1, preferredDoctorName: "Dr. Usman",
 });
 
 export const db = {
   clinics: [{ id: 1, name: "Al-Shifa Clinic", slug: "al-shifa", adminEmail: "admin@alshifa.com", status: "active" }],
   users: [
     { id: 1, name: "Clinic Admin", email: "admin@clinic.com", role: "clinic_admin", active: true },
-    { id: 2, name: "Dr. Usman", email: "doctor@clinic.com", role: "doctor", active: true },
+    { id: 2, name: "Dr. Usman", email: "doctor@clinic.com", role: "doctor", active: true, doctorId: 1 },
+    { id: 3, name: "Bilal", email: "reception@clinic.com", role: "receptionist", active: true },
+    { id: 4, name: "Accountant", email: "accountant@clinic.com", role: "accountant", active: true },
   ],
   settings: [{ id: 1, name: "Al-Shifa Clinic", address: "Main Road, Mianwali", phone: "0459-000000", logo: "", eodEnabled: "No", eodWhatsapp: "", eodEmail: "" }],
-  patients: [pat(1, "Ahmed Khan", "Male", 34, "0300-1234567"), pat(2, "Sara Bibi", "Female", 27, "0311-7654321")],
+  patients: [pat(1, "Ahmed Khan", "Male", 34, "0300-1234567", "38302-1234567-1"), pat(2, "Sara Bibi", "Female", 27, "0311-7654321", "38302-7654321-2")],
   staff: [
     { id: 1, name: "Dr. Usman", role: "doctor", phone: "0300-1111111", salary: 150000, commission: 20 },
     { id: 2, name: "Dr. Ayesha", role: "doctor", phone: "0300-2222222", salary: 140000, commission: 15 },
@@ -48,10 +51,12 @@ export const db = {
     { id: 1, name: "Consultation fee", category: "Consultation", price: 1000 },
     { id: 2, name: "Dressing", category: "Procedure", price: 500 },
     { id: 3, name: "ECG", category: "Procedure", price: 700 },
+    { id: 4, name: "Admission fee", category: "Admission", price: 2000 },
   ],
   bills: [
-    { id: 1, billNo: "B-0001", patientName: "Ahmed Khan", lines: [{ name: "Consultation fee", category: "Consultation", amount: 1000 }], discount: 0, total: 1000, method: "Cash", user: "Clinic Admin", doctorId: 1, doctorName: "Dr. Usman", date: today(), time: "09:12" },
+    { id: 1, billNo: "B-0001", patientName: "Ahmed Khan", lines: [{ name: "Consultation fee", category: "Consultation", amount: 1000 }], discount: 0, total: 1000, method: "Cash", user: "Bilal", doctorId: 1, doctorName: "Dr. Usman", date: today(), time: "09:12" },
   ],
   expenses: [{ id: 1, category: "Utility", description: "Electricity bill", amount: 3500, date: today() }],
+  handovers: [],
   attendance: [], advances: [], payroll: [], dayClosings: [], auditLogs: [],
 };

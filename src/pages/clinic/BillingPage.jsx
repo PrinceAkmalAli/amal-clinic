@@ -4,11 +4,12 @@ import {
   billsApi,
   closingsApi,
   expensesApi,
+  labOrdersApi,
   patientsApi,
   servicesApi,
   staffApi,
 } from "../../api/resources";
-import { useCreate, useList } from "../../hooks/useResource";
+import { useCreate, useList, useUpdate } from "../../hooks/useResource";
 import { useAuth } from "../../context/AuthContext";
 import { findById, money, today } from "../../utils/date";
 import { makeBill } from "../../utils/billing";
@@ -19,6 +20,7 @@ import Field from "../../components/ui/Field";
 import Stats from "../../components/ui/Stats";
 import FormCard from "../../components/ui/FormCard";
 import DataTable from "../../components/ui/DataTable";
+import Badge from "../../components/ui/Badge";
 import { useTabParam } from "../../hooks/useTabParam";
 
 const CATEGORIES = [
@@ -28,6 +30,7 @@ const CATEGORIES = [
   "IPD Advance",
   "IPD Settlement",
 ];
+
 const EXPENSE_TYPES = [
   "Rent",
   "Utility",
@@ -41,7 +44,7 @@ export default function BillingPage() {
   const { user, can } = useAuth();
   const [tab, setTab] = useTabParam("pos");
   const tabs = [
-    { key: "pos", label: "POS billing" },
+    { key: "pos", label: "POS billing & Unpaid Labs" },
     { key: "history", label: "Payment history" },
     ...(can("finance.view")
       ? [
@@ -53,7 +56,7 @@ export default function BillingPage() {
 
   return (
     <>
-      <PageHeader title="Billing & finance" icon={Wallet} />
+      <PageHeader title="Billing & Finance Counter" icon={Wallet} />
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === "pos" && <Pos user={user} />}
       {tab === "history" && <History />}
@@ -63,12 +66,16 @@ export default function BillingPage() {
   );
 }
 
-/* ---------- POS ---------- */
+/* ---------- POS & Unpaid Lab Orders Counter ---------- */
 function Pos({ user }) {
   const { data: services = [] } = useList(servicesApi, "services");
   const { data: patients = [] } = useList(patientsApi, "patients");
   const { data: staff = [] } = useList(staffApi, "staff");
+  const { data: labOrders = [] } = useList(labOrdersApi, "labOrders");
+
   const createBill = useCreate(billsApi, "bills");
+  const updateLabOrder = useUpdate(labOrdersApi, "labOrders");
+
   const [cart, setCart] = useState([]);
   const [serviceId, setServiceId] = useState("");
   const [patientId, setPatientId] = useState("");
@@ -82,19 +89,41 @@ function Pos({ user }) {
 
   const addItem = () => {
     const s = findById(services, serviceId || services[0]?.id);
-    if (s)
+    if (s) {
       setCart([
         ...cart,
-        { name: s.name, category: s.category, amount: s.price },
+        {
+          name: s.name,
+          category: s.category || "Consultation",
+          amount: s.price,
+        },
       ]);
+    }
   };
+
+  // Lab order ko bill mein add karne ka quick action
+  const addLabToCart = (order) => {
+    // Check if already in cart
+    if (cart.some((item) => item.labOrderId === order.id)) return;
+    setCart([
+      ...cart,
+      {
+        name: `Lab Test: ${order.testName}`,
+        category: "Lab",
+        amount: order.price,
+        labOrderId: order.id,
+      },
+    ]);
+  };
+
   const generate = () => {
     if (cart.length === 0) return;
     const patient = findById(patients, patientId);
     const doctor = findById(doctors, doctorId);
+
     createBill.mutate(
       makeBill({
-        patientName: patient?.name,
+        patientName: patient?.name || "Walk-in Patient",
         lines: cart,
         discount,
         method,
@@ -104,7 +133,16 @@ function Pos({ user }) {
       }),
       {
         onSuccess: (bill) => {
-          setDone(`Bill ${bill.billNo} ban gaya - ${money(bill.total)}`);
+          // Agar cart mein koi lab order tha, toh usko billed: true update kar do taaki lab mein Paid show ho jaye
+          cart.forEach((item) => {
+            if (item.labOrderId) {
+              updateLabOrder.mutate({ id: item.labOrderId, billed: true });
+            }
+          });
+
+          setDone(
+            `Bill #${bill.billNo} successfully generate ho gaya - Total: ${money(bill.total)}`,
+          );
           setCart([]);
           setDiscount(0);
         },
@@ -112,9 +150,76 @@ function Pos({ user }) {
     );
   };
 
+  // Unpaid lab orders jo reception/doctors se aaye hain
+  const unpaidLabOrders = labOrders.filter((o) => o.billed === false);
+
   return (
     <>
-      {done && <div className="success-note">{done}</div>}
+      {done && (
+        <div
+          className="success-note mb"
+          style={{
+            padding: "10px",
+            background: "#d4edda",
+            color: "#155724",
+            marginBottom: "15px",
+            borderRadius: "4px",
+          }}
+        >
+          {done}
+        </div>
+      )}
+
+      {/* Unpaid Lab Orders Queue for Billing Counter */}
+      {unpaidLabOrders.length > 0 && (
+        <div
+          className="card card-pad mb"
+          style={{ borderLeft: "4px solid #ffc107" }}
+        >
+          <h3>Pending Lab Payments (Collected at Counter)</h3>
+          <p className="hint mb" style={{ fontSize: "13px", color: "#666" }}>
+            Neche diye gaye lab tests ki payment abhi pending hai. 'Add to POS
+            Bill' par click karke bill generate karein.
+          </p>
+          <div style={{ overflowX: "auto" }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "14px",
+              }}
+            >
+              <thead>
+                <tr style={{ background: "#f8f9fa", textAlign: "left" }}>
+                  <th style={{ padding: "8px" }}>Patient</th>
+                  <th style={{ padding: "8px" }}>Test Name</th>
+                  <th style={{ padding: "8px" }}>Price</th>
+                  <th style={{ padding: "8px" }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unpaidLabOrders.map((order) => (
+                  <tr
+                    key={order.id}
+                    style={{ borderBottom: "1px solid #dee2e6" }}
+                  >
+                    <td style={{ padding: "8px" }}>{order.patientName}</td>
+                    <td style={{ padding: "8px" }}>{order.testName}</td>
+                    <td style={{ padding: "8px" }}>{money(order.price)}</td>
+                    <td style={{ padding: "8px" }}>
+                      <Button small onClick={() => addLabToCart(order)}>
+                        Add to POS Bill
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Billing POS Form */}
       <div className="card card-pad mb">
         <div className="form-grid">
           <div className="field">
@@ -134,7 +239,7 @@ function Pos({ user }) {
             </select>
           </div>
           <div className="field">
-            <label>Doctor (commission ke liye)</label>
+            <label>Doctor (Commission ke liye)</label>
             <select
               className="plain-select"
               style={{ width: "100%" }}
@@ -150,7 +255,7 @@ function Pos({ user }) {
             </select>
           </div>
           <div className="field">
-            <label>Service</label>
+            <label>Service / Consultation / Procedure</label>
             <select
               className="plain-select"
               style={{ width: "100%" }}
@@ -165,7 +270,7 @@ function Pos({ user }) {
             </select>
           </div>
           <div style={{ alignSelf: "end" }}>
-            <Button onClick={addItem}>Add to bill</Button>
+            <Button onClick={addItem}>Add item</Button>
           </div>
         </div>
       </div>
@@ -173,7 +278,7 @@ function Pos({ user }) {
       <DataTable
         rows={cart.map((l, i) => ({ ...l, id: i }))}
         columns={[
-          { key: "name", label: "Item" },
+          { key: "name", label: "Item / Service / Lab Test" },
           { key: "category", label: "Category" },
           { key: "amount", label: "Amount", render: (l) => money(l.amount) },
           {
@@ -191,7 +296,7 @@ function Pos({ user }) {
         ]}
       />
 
-      <div className="card card-pad">
+      <div className="card card-pad mt">
         <div className="form-grid">
           <Field
             label="Discount (PKR)"
@@ -219,7 +324,7 @@ function Pos({ user }) {
           onClick={generate}
           disabled={createBill.isPending || cart.length === 0}
         >
-          Generate bill
+          Generate Bill & Verify Payment
         </Button>
       </div>
     </>
@@ -230,6 +335,7 @@ function Pos({ user }) {
 function History() {
   const [date, setDate] = useState(today());
   const { data: bills = [], isLoading } = useList(billsApi, "bills", { date });
+
   return (
     <>
       <div className="mb">
@@ -244,7 +350,7 @@ function History() {
         loading={isLoading}
         rows={bills}
         columns={[
-          { key: "billNo", label: "Bill" },
+          { key: "billNo", label: "Bill #" },
           { key: "time", label: "Time" },
           { key: "patientName", label: "Patient" },
           {
@@ -259,17 +365,18 @@ function History() {
           },
           { key: "total", label: "Total", render: (b) => money(b.total) },
           { key: "method", label: "Method" },
-          { key: "user", label: "By" },
+          { key: "user", label: "Collector" },
         ]}
       />
     </>
   );
 }
 
-/* ---------- Expenses (cash-out) ---------- */
+/* ---------- Expenses (Cash-out) ---------- */
 function Expenses() {
   const { data: expenses = [], isLoading } = useList(expensesApi, "expenses");
   const add = useCreate(expensesApi, "expenses");
+
   return (
     <>
       <FormCard
@@ -316,7 +423,7 @@ function DayEnd({ user }) {
     .filter((b) => b.method === "Cash")
     .reduce((s, b) => s + b.total, 0);
   const spent = expenses.reduce((s, e) => s + e.amount, 0);
-  const expected = cash - spent; // kharche drawer se huay maan kar
+  const expected = cash - spent;
   const difference = Number(counted || 0) - expected;
 
   return (
@@ -411,3 +518,4 @@ function DayEnd({ user }) {
     </>
   );
 }
+zzy;

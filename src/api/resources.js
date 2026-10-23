@@ -3,8 +3,10 @@ import { today } from "../utils/date";
 
 const pad = (n, size = 4) => String(n).padStart(size, "0");
 
+// Delete ke baad rows.length se MR number repeat ho sakta tha, is liye sab se bara number + 1
+const nextMr = (rows) => Math.max(0, ...rows.map((r) => parseInt(String(r.mrNumber).slice(3), 10) || 0)) + 1;
 export const patientsApi = createResource("patients", "/patients/", {
-  prefill: (rows) => ({ mrNumber: `MR-${pad(rows.length + 1)}`, registeredOn: today() }), // auto MR number
+  prefill: (rows) => ({ mrNumber: `MR-${pad(nextMr(rows))}`, registeredOn: today() }), // auto MR number
 });
 export const usersApi = createResource("users", "/users/");
 export const staffApi = createResource("staff", "/staff/");
@@ -26,6 +28,8 @@ export const billsApi = createResource("bills", "/billing/bills/", {
   prefill: (rows) => ({ billNo: `B-${pad(rows.length + 1)}` }),
 });
 export const expensesApi = createResource("expenses", "/billing/expenses/");
+// Reception se owner ko cash handover (pending -> received)
+export const handoversApi = createResource("handovers", "/finance/handovers/");
 export const closingsApi = createResource("dayClosings", "/billing/closings/");
 export const attendanceApi = createResource("attendance", "/hrm/attendance/");
 export const advancesApi = createResource("advances", "/hrm/advances/");

@@ -16,8 +16,10 @@ export function AuthProvider({ children }) {
   };
 
   // can("patients.view") -> true/false
+  // can(["a", "b"]) -> in mein se koi bhi ho to true
   const can = (permission) => {
     if (!permission) return true;
+    if (Array.isArray(permission)) return permission.some(can);
     const list = auth?.user?.permissions || [];
     return list.includes("*") || list.includes(permission);
   };

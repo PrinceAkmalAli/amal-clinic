@@ -1,13 +1,20 @@
 import http, { USE_MOCK } from "./http";
 import { ROLES } from "../config/roles";
+import { db } from "./mockDb";
 
 // Mock login: password "admin123".
 // Email "doctor@..." = doctor, "reception@..." = receptionist, baqi = clinic admin.
 export async function login({ email, password, clinicSlug }) {
   if (USE_MOCK) {
     await new Promise((r) => setTimeout(r, 400));
-    if (password !== "admin123")
+    // Users page se bane huay users (db.users) pehle dekhe jate hain
+    const found = clinicSlug
+      ? db.users.find((u) => u.email.toLowerCase() === email.toLowerCase())
+      : null;
+    if (password !== (found?.password || "admin123"))
       throw new Error("Email ya password ghalat hai");
+    if (found && found.active === false)
+      throw new Error("Ye account disabled hai");
     if (!clinicSlug) {
       return {
         token: "mock",
@@ -19,7 +26,9 @@ export async function login({ email, password, clinicSlug }) {
         },
       };
     }
-    const role = email.startsWith("doctor")
+    const role = found
+      ? found.role
+      : email.startsWith("doctor")
       ? "doctor"
       : email.startsWith("reception")
         ? "receptionist"
@@ -27,12 +36,13 @@ export async function login({ email, password, clinicSlug }) {
     return {
       token: "mock",
       user: {
-        name: email.split("@")[0],
+        name: found?.name || email.split("@")[0],
         email,
         role,
         clinicSlug,
-        permissions: ROLES[role].permissions,
-        doctorId: role === "doctor" ? 1 : undefined, // 1 = Dr. Usman (mock)
+        // user ki apni permissions ho to wo, warna role ki default
+        permissions: found?.permissions || ROLES[role].permissions,
+        doctorId: role === "doctor" ? found?.doctorId || 1 : undefined, // 1 = Dr. Usman (mock)
       },
     };
   }

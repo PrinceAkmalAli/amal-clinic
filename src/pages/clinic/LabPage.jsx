@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { FlaskConical } from "lucide-react";
 import {
-  billsApi,
   labOrdersApi,
   labTestsApi,
   patientsApi,
@@ -10,7 +9,6 @@ import {
 import { useCreate, useList, useUpdate } from "../../hooks/useResource";
 import { useAuth } from "../../context/AuthContext";
 import { findById, today } from "../../utils/date";
-import { makeBill } from "../../utils/billing";
 import { flagFor, parseParameters, rangeFor, rangeText } from "../../utils/lab";
 import PageHeader from "../../components/ui/PageHeader";
 import Tabs from "../../components/ui/Tabs";
@@ -44,25 +42,12 @@ export default function LabPage() {
   const createTest = useCreate(labTestsApi, "labTests");
   const createOrder = useCreate(labOrdersApi, "labOrders");
   const updateOrder = useUpdate(labOrdersApi, "labOrders");
-  const createBill = useCreate(billsApi, "bills");
 
   const order = orders.find((o) => o.id === panel?.id);
   const testOf = (o) => tests.find((t) => t.id === o.testId);
 
-  /* ---------- Doctor ke recommend kiye test ka payment ---------- */
-  // Billing counter "Collect payment" dabata hai: bill banta hai, phir order "paid" ho jata hai
-  const collect = async (o) => {
-    await createBill.mutateAsync(
-      makeBill({
-        patientName: o.patientName,
-        user: user?.name,
-        doctorId: o.doctorId,
-        doctorName: o.doctorName,
-        lines: [{ name: o.testName, category: "Lab", amount: o.price }],
-      }),
-    );
-    await updateOrder.mutateAsync({ id: o.id, billed: true });
-  };
+  // Payment ab sirf front desk (OPD & Patients > Cashier) par hoti hai.
+  // Lab mein sirf Paid / Unpaid dikhta hai aur unpaid order par kaam shuru nahi hota.
 
   /* ---------- Catalog ---------- */
   const addTest = (v, reset) =>
@@ -93,20 +78,9 @@ export default function LabPage() {
         status: "Ordered",
         sampleId: null,
         results: [],
-        billed: true, // reception par bill usi waqt ban jata hai
+        billed: false, // payment reception (Cashier tab) par hogi
       },
-      {
-        onSuccess: () => {
-          createBill.mutate(
-            makeBill({
-              patientName: p.name,
-              user: user?.name,
-              lines: [{ name: t.name, category: "Lab", amount: t.price }],
-            }),
-          );
-          reset();
-        },
-      },
+      { onSuccess: reset },
     );
   };
 
@@ -165,6 +139,16 @@ export default function LabPage() {
     },
     { key: "sampleId", label: "Sample ID", render: (o) => o.sampleId || "-" },
     {
+      key: "paid",
+      label: "Payment",
+      render: (o) =>
+        o.billed === false ? (
+          <Badge tone="warn">Unpaid - pay at reception</Badge>
+        ) : (
+          <Badge tone="success">Paid</Badge>
+        ),
+    },
+    {
       key: "status",
       label: "Status",
       render: (o) => <Badge tone={STATUS_TONE[o.status]}>{o.status}</Badge>,
@@ -174,16 +158,6 @@ export default function LabPage() {
       label: "",
       render: (o) => (
         <div className="actions">
-          {o.billed === false && (
-            <Button
-              small
-              primary
-              disabled={createBill.isPending}
-              onClick={() => collect(o)}
-            >
-              Collect payment
-            </Button>
-          )}
           {o.billed !== false && nextLabel[o.status] && (
             <Button small onClick={() => step(o)}>
               {nextLabel[o.status]}
@@ -258,7 +232,7 @@ export default function LabPage() {
         <>
           <FormCard
             title="New lab order"
-            submitLabel="Order & bill"
+            submitLabel="Place order (unpaid)"
             pending={createOrder.isPending}
             onSubmit={placeOrder}
             fields={[
